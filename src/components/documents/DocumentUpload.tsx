@@ -19,6 +19,16 @@ export const DocumentUpload = ({ projectId, onSuccess }: DocumentUploadProps) =>
 
   const uploadFile = async (file: File) => {
     try {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
+        toast({
+          title: "PDF only",
+          description: "Please upload a PDF document.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setUploading(true);
       setProgress(20);
 
@@ -99,6 +109,7 @@ export const DocumentUpload = ({ projectId, onSuccess }: DocumentUploadProps) =>
         <input
           ref={fileInputRef}
           type="file"
+          accept="application/pdf,.pdf"
           onChange={handleChange}
           className="hidden"
           disabled={uploading}
