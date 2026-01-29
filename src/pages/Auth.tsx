@@ -20,6 +20,28 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // If already authenticated, never keep the user on /auth.
+  useEffect(() => {
+    let mounted = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      if (session?.user) navigate("/dashboard", { replace: true });
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      if (session?.user) navigate("/dashboard", { replace: true });
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+
   const authSchema = useMemo(
     () =>
       z.object({

@@ -8,7 +8,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Keep the latest session in state so we can react safely without calling Supabase inside the auth callback.
-  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  // undefined = not initialized yet; null = initialized but not logged in
+  const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(undefined);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -19,6 +21,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setSessionUserId(session?.user?.id ?? null);
+      setAuthReady(true);
     });
 
     // THEN read current session
@@ -27,10 +30,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       .then(({ data: { session } }) => {
         if (!mounted) return;
         setSessionUserId(session?.user?.id ?? null);
+        setAuthReady(true);
       })
       .catch(() => {
         if (!mounted) return;
         setSessionUserId(null);
+        setAuthReady(true);
       });
 
     return () => {
@@ -43,6 +48,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+
+      // Critical: don't redirect until we know whether a session exists.
+      if (!authReady) return;
 
       if (!sessionUserId) {
         setIsAdmin(false);
@@ -69,7 +77,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [sessionUserId]);
+  }, [authReady, sessionUserId]);
 
   if (loading) {
     return (
