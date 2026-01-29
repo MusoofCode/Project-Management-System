@@ -21,10 +21,30 @@ const Documents = () => {
 
   const handleDownload = async (doc: any) => {
     try {
-      const { data } = supabase.storage.from("documents").getPublicUrl(doc.file_path);
-      window.open(data.publicUrl, "_blank");
+      toast({ title: "Preparing download…" });
+
+      // Prefer signed URLs so downloads work even when the bucket is private.
+      const { data: signed, error: signedError } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(doc.file_path, 60);
+
+      if (!signedError && signed?.signedUrl) {
+        window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      // Fallback for public buckets.
+      const { data: pub } = supabase.storage.from("documents").getPublicUrl(doc.file_path);
+      if (!pub?.publicUrl) {
+        throw new Error("This file isn't available for download.");
+      }
+      window.open(pub.publicUrl, "_blank", "noopener,noreferrer");
     } catch (error: any) {
-      toast({ title: "Download failed", description: error.message, variant: "destructive" });
+      toast({
+        title: "Download failed",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
