@@ -57,6 +57,21 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        construction: {
+          orange: "hsl(var(--construction-orange))",
+          dark: "hsl(var(--construction-dark))",
+          slate: "hsl(var(--construction-slate))",
+          steel: "hsl(var(--construction-steel))",
+          amber: "hsl(var(--construction-amber))",
+          concrete: "hsl(var(--construction-concrete))",
+        },
+      },
+      backgroundImage: {
+        "gradient-hero": "var(--gradient-hero)",
+        "gradient-card": "var(--gradient-card)",
+      },
+      boxShadow: {
+        construction: "var(--shadow-construction)",
       },
       borderRadius: {
         lg: "var(--radius)",
