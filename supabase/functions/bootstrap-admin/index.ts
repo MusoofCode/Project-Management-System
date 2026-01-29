@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    console.log("bootstrap-admin: request", { method: req.method });
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -39,6 +40,7 @@ Deno.serve(async (req) => {
     const { data: existing, error: existsErr } = await adminClient
       .from("user_roles")
       .select("id")
+      .eq("role", "admin")
       .limit(1);
     if (existsErr) throw existsErr;
     if ((existing?.length ?? 0) > 0) {
@@ -52,6 +54,8 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .insert({ user_id: user.id, role: "admin" });
     if (insertErr) throw insertErr;
+
+    console.log("bootstrap-admin: granted", { user_id: user.id });
 
     return Response.json(
       { ok: true },

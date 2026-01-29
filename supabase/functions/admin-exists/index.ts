@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    console.log("admin-exists: request", { method: req.method });
     const url = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -21,12 +22,17 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("id")
+      .eq("role", "admin")
       .limit(1);
 
     if (error) throw error;
 
+    const adminExists = (data?.length ?? 0) > 0;
+
+    console.log("admin-exists: result", { adminExists });
+
     return Response.json(
-      { adminExists: (data?.length ?? 0) > 0 },
+      { adminExists },
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
