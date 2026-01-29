@@ -73,6 +73,17 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+
+        // If the system has no admin yet (fresh install or previous failed bootstrap),
+        // promote the first successful login to admin.
+        const { data: existsData, error: existsError } = await supabase.functions.invoke("admin-exists");
+        if (existsError) throw existsError;
+        const exists = Boolean((existsData as any)?.adminExists);
+        if (!exists) {
+          const { error: bootstrapError } = await supabase.functions.invoke("bootstrap-admin");
+          if (bootstrapError) throw bootstrapError;
+        }
+
         toast({ title: "Login successful" });
         navigate("/dashboard");
       } else {
