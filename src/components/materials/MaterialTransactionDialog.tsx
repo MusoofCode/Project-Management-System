@@ -84,6 +84,7 @@ export function MaterialTransactionDialog({ open, onOpenChange, material, onSucc
 
   const projectValue = watch("project_id");
   const typeValue = watch("transaction_type");
+  const NONE_PROJECT_VALUE = "__none__";
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
@@ -159,12 +160,15 @@ export function MaterialTransactionDialog({ open, onOpenChange, material, onSucc
 
           <div>
             <Label>Project (Optional)</Label>
-            <Select value={projectValue} onValueChange={(v) => setValue("project_id", v)}>
+            <Select
+              value={projectValue || NONE_PROJECT_VALUE}
+              onValueChange={(v) => setValue("project_id", v === NONE_PROJECT_VALUE ? "" : v)}
+            >
               <SelectTrigger className="bg-construction-dark border-construction-steel text-white">
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent className="bg-construction-slate border-construction-steel z-50">
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value={NONE_PROJECT_VALUE}>None</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}

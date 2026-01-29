@@ -107,7 +107,8 @@ export const MaterialDialog = ({ open, onOpenChange, material, onSuccess }: Mate
     }
   };
 
-  const projectValue = watch("project_id");
+  const NONE_PROJECT_VALUE = "__none__";
+  const projectValue = watch("project_id") || NONE_PROJECT_VALUE;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,12 +188,15 @@ export const MaterialDialog = ({ open, onOpenChange, material, onSuccess }: Mate
 
           <div>
             <Label>Assign to Project (Optional)</Label>
-            <Select value={projectValue} onValueChange={(val) => setValue("project_id", val)}>
+            <Select
+              value={projectValue}
+              onValueChange={(val) => setValue("project_id", val === NONE_PROJECT_VALUE ? "" : val)}
+            >
               <SelectTrigger className="bg-construction-dark border-construction-steel text-white">
                 <SelectValue placeholder="Select project" />
               </SelectTrigger>
               <SelectContent className="bg-construction-slate border-construction-steel">
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value={NONE_PROJECT_VALUE}>None</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
