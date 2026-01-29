@@ -2,7 +2,22 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderKanban, DollarSign, Package, TrendingUp, AlertTriangle, Wrench, Users } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { format, parseISO, subDays } from "date-fns";
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -14,20 +29,24 @@ const Dashboard = () => {
     totalWorkers: 0,
   });
   const [projectsByStatus, setProjectsByStatus] = useState<any[]>([]);
+  const [expensesByDay, setExpensesByDay] = useState<Array<{ day: string; amount: number }>>([]);
+  const [materialsByCategory, setMaterialsByCategory] = useState<Array<{ category: string; quantity: number }>>([]);
 
   useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = async () => {
+    const fromDate = subDays(new Date(), 29);
+
     const [projects, expenses, materials, equipment, workers, allProjects] = await Promise.all([
-        supabase.from("projects").select("*").eq("status", "Active"),
-        supabase.from("expenses").select("amount"),
-        supabase.from("materials").select("*"),
+      supabase.from("projects").select("*").eq("status", "Active"),
+      supabase.from("expenses").select("amount,date,category").gte("date", format(fromDate, "yyyy-MM-dd")),
+      supabase.from("materials").select("category,quantity,low_stock_threshold"),
       supabase.from("equipment").select("*").eq("available", false),
-      supabase.from("workers").select("*"),
+      supabase.from("workers").select("role"),
       supabase.from("projects").select("status"),
-      ]);
+    ]);
 
       const totalBudget = projects.data?.reduce((sum, p) => sum + Number(p.budget), 0) || 0;
       const totalSpent = expenses.data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
@@ -53,6 +72,26 @@ const Dashboard = () => {
       value: count,
     }));
     setProjectsByStatus(chartData);
+
+    // Expenses (last 30 days) line chart
+    const expenseTotalsByDay = new Map<string, number>();
+    for (let i = 0; i < 30; i++) {
+      const d = subDays(new Date(), 29 - i);
+      expenseTotalsByDay.set(format(d, "MMM d"), 0);
+    }
+    expenses.data?.forEach((e) => {
+      const dayKey = format(parseISO(e.date), "MMM d");
+      expenseTotalsByDay.set(dayKey, (expenseTotalsByDay.get(dayKey) || 0) + Number(e.amount || 0));
+    });
+    setExpensesByDay(Array.from(expenseTotalsByDay.entries()).map(([day, amount]) => ({ day, amount })));
+
+    // Materials by category bar chart
+    const matTotals = new Map<string, number>();
+    materials.data?.forEach((m) => {
+      const key = m.category || "Uncategorized";
+      matTotals.set(key, (matTotals.get(key) || 0) + Number(m.quantity || 0));
+    });
+    setMaterialsByCategory(Array.from(matTotals.entries()).map(([category, quantity]) => ({ category, quantity })));
   };
 
   const cards = [
@@ -70,6 +109,9 @@ const Dashboard = () => {
     "hsl(var(--construction-concrete))",
     "hsl(var(--foreground))",
   ];
+
+  const gridStroke = "hsl(var(--construction-steel) / 0.3)";
+  const axisTick = "hsl(var(--construction-concrete))";
 
   return (
     <div className="p-8 space-y-8 page-enter">
@@ -131,6 +173,75 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Expenses Over Time */}
+        <Card className="bg-gradient-card border-construction-steel/30">
+          <CardHeader>
+            <CardTitle className="text-foreground">Expenses (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={expensesByDay} margin={{ left: 8, right: 12 }}>
+                <CartesianGrid stroke={gridStroke} strokeDasharray="4 4" />
+                <XAxis dataKey="day" tick={{ fill: axisTick }} interval={4} />
+                <YAxis tick={{ fill: axisTick }} />
+                <Tooltip
+                  formatter={(value: any) => [`$${Number(value).toLocaleString()}`, "Spent"]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--construction-slate))",
+                    border: "1px solid hsl(var(--construction-steel) / 0.6)",
+                    color: "hsl(var(--foreground))",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="hsl(var(--construction-orange))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Materials by Category */}
+        <Card className="bg-gradient-card border-construction-steel/30">
+          <CardHeader>
+            <CardTitle className="text-foreground">Materials by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={materialsByCategory} margin={{ left: 8, right: 12 }}>
+                <CartesianGrid stroke={gridStroke} strokeDasharray="4 4" />
+                <XAxis
+                  dataKey="category"
+                  tick={{ fill: axisTick }}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fill: axisTick }} />
+                <Tooltip
+                  formatter={(value: any) => [Number(value).toLocaleString(), "Qty"]}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--construction-slate))",
+                    border: "1px solid hsl(var(--construction-steel) / 0.6)",
+                    color: "hsl(var(--foreground))",
+                  }}
+                />
+                <Bar dataKey="quantity" radius={[6, 6, 0, 0]}>
+                  {materialsByCategory.map((_, idx) => (
+                    <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
