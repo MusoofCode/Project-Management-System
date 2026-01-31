@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Budget from "./pages/Budget";
@@ -31,7 +32,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route
+            element={
+              <ProtectedRoute>
+                <SidebarProvider defaultOpen>
+                  <DashboardLayout />
+                </SidebarProvider>
+              </ProtectedRoute>
+            }
+          >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/budget" element={<Budget />} />
