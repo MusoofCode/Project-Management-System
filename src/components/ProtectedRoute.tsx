@@ -58,19 +58,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", sessionUserId)
-        .eq("role", "admin")
-        .maybeSingle();
+      // Use the security-definer function so the role check works even when table RLS is strict.
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: sessionUserId,
+        _role: "admin",
+      });
 
       if (cancelled) return;
-      if (error) {
-        setIsAdmin(false);
-      } else {
-        setIsAdmin(Boolean(data));
-      }
+      setIsAdmin(Boolean(!error && data));
       setLoading(false);
     })();
 
