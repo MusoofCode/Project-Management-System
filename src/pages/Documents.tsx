@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Download, Trash2, Eye, Folder } from "lucide-react";
+import { FileText, Download, Trash2, Eye, Folder, Maximize2, Minimize2, ZoomIn, ZoomOut, RefreshCcw } from "lucide-react";
 import { DocumentUpload } from "@/components/documents/DocumentUpload";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +38,10 @@ const Documents = () => {
   const [previewDoc, setPreviewDoc] = useState<any | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewExpiresAt, setPreviewExpiresAt] = useState<number>(0);
+  const [previewExpired, setPreviewExpired] = useState(false);
+  const [zoomPct, setZoomPct] = useState(110);
+  const previewFrameRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -87,12 +91,15 @@ const Documents = () => {
       setPreviewOpen(true);
       setPreviewLoading(true);
       setPreviewUrl("");
+      setPreviewExpired(false);
+      setZoomPct(110);
 
       const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.file_path, 60 * 5);
       if (error) throw error;
 
       if (!data?.signedUrl) throw new Error("Unable to generate preview link.");
       setPreviewUrl(data.signedUrl);
+      setPreviewExpiresAt(Date.now() + 5 * 60 * 1000);
     } catch (error: any) {
       toast({
         title: "Preview failed",
@@ -104,6 +111,55 @@ const Documents = () => {
       setPreviewUrl("");
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const refreshPreview = async () => {
+    if (!previewDoc) return;
+    try {
+      setPreviewLoading(true);
+      setPreviewExpired(false);
+      setPreviewUrl("");
+
+      const { data, error } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(previewDoc.file_path, 60 * 5);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error("Unable to generate preview link.");
+
+      setPreviewUrl(data.signedUrl);
+      setPreviewExpiresAt(Date.now() + 5 * 60 * 1000);
+    } catch (error: any) {
+      toast({
+        title: "Preview failed",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+      setPreviewExpired(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const t = window.setInterval(() => {
+      if (previewExpiresAt && Date.now() > previewExpiresAt) setPreviewExpired(true);
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [previewExpiresAt, previewOpen]);
+
+  const toggleFullscreen = async () => {
+    const el = previewFrameRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -312,15 +368,80 @@ const Documents = () => {
             <DialogDescription className="truncate">{previewDoc?.name ?? ""}</DialogDescription>
           </DialogHeader>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-background">
-            {previewLoading && <div className="p-6 text-sm text-muted-foreground">Loading preview…</div>}
-            {!previewLoading && previewUrl && (
-              <iframe
-                title="PDF preview"
-                src={previewUrl}
-                className="h-[70vh] w-full"
-              />
-            )}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setZoomPct((z) => Math.max(50, z - 10))}
+                  disabled={!previewUrl || previewLoading || previewExpired}
+                  title="Zoom out"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setZoomPct((z) => Math.min(200, z + 10))}
+                  disabled={!previewUrl || previewLoading || previewExpired}
+                  title="Zoom in"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground tabular-nums">{zoomPct}%</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={refreshPreview}
+                  disabled={!previewDoc || previewLoading}
+                  title="Refresh preview"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+
+                <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title="Fullscreen">
+                  {typeof document !== "undefined" && document.fullscreenElement ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Fullscreen</span>
+                </Button>
+              </div>
+            </div>
+
+            <div
+              ref={previewFrameRef}
+              className="overflow-hidden rounded-2xl border border-border bg-background"
+            >
+              {previewLoading && <div className="p-6 text-sm text-muted-foreground">Loading preview…</div>}
+
+              {!previewLoading && (previewExpired || !previewUrl) && (
+                <div className="p-6">
+                  <p className="text-sm font-medium text-foreground">Preview link expired</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    For security, preview links expire after a few minutes. Click <span className="font-medium">Refresh</span> to generate a new one.
+                  </p>
+                </div>
+              )}
+
+              {!previewLoading && !previewExpired && previewUrl && (
+                <iframe
+                  title="PDF preview"
+                  // Most browsers support PDF viewer fragments like #zoom=110
+                  src={`${previewUrl}#zoom=${zoomPct}`}
+                  className="h-[70vh] w-full"
+                />
+              )}
+            </div>
           </div>
 
           <DialogFooter>
