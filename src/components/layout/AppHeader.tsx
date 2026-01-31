@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { Clock, Moon, Sun } from "lucide-react";
+import { Clock, Moon, Sun, ShieldCheck, User } from "lucide-react";
 
 import {
   Select,
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { CommunicationDialog } from "@/components/communication/CommunicationDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 function routeLabel(pathname: string) {
   const map: Record<string, string> = {
@@ -36,11 +36,57 @@ export function AppHeader({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [now, setNow] = useState(() => new Date());
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(undefined);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setSessionUserId(session?.user?.id ?? null);
+      setSessionEmail(session?.user?.email ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSessionUserId(session?.user?.id ?? null);
+      setSessionEmail(session?.user?.email ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!sessionUserId) {
+        setIsAdmin(null);
+        return;
+      }
+      const { data, error } = await supabase.rpc("has_role", {
+        _user_id: sessionUserId,
+        _role: "admin",
+      });
+      if (cancelled) return;
+      setIsAdmin(Boolean(!error && data));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionUserId]);
 
   const themeMode = (theme ?? "system") as "dark" | "light" | "system";
   const effectiveTheme = (resolvedTheme ?? "dark") as "dark" | "light";
@@ -103,7 +149,17 @@ export function AppHeader({ onLogout }: { onLogout: () => void }) {
             </Select>
           </div>
 
-          <CommunicationDialog />
+          {sessionEmail && (
+            <div className="hidden lg:flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="max-w-[220px] truncate text-xs font-medium text-foreground">{sessionEmail}</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                {isAdmin ? "Admin" : "User"}
+              </span>
+            </div>
+          )}
           <NotificationCenter />
 
           <Button

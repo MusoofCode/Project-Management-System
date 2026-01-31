@@ -9,16 +9,20 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { format, parseISO, subDays } from "date-fns";
 
 const Dashboard = () => {
@@ -120,13 +124,10 @@ const Dashboard = () => {
 
   const COLORS = [
     "hsl(var(--construction-orange))",
-    "hsl(var(--construction-steel))",
-    "hsl(var(--construction-concrete))",
-    "hsl(var(--foreground))",
+    "hsl(var(--construction-amber))",
+    "hsl(var(--sidebar-primary))",
+    "hsl(var(--muted-foreground))",
   ];
-
-  const gridStroke = "hsl(var(--construction-steel) / 0.3)";
-  const axisTick = "hsl(var(--construction-concrete))";
 
   return (
     <div className="p-8 space-y-8 page-enter">
@@ -171,32 +172,31 @@ const Dashboard = () => {
             <CardTitle className="text-foreground">Projects by Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ChartContainer
+              className="h-[300px] w-full"
+              config={{
+                value: { label: "Projects", color: "hsl(var(--construction-orange))" },
+              }}
+            >
               <PieChart>
+                <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                <ChartLegend content={<ChartLegendContent nameKey="name" />} />
                 <Pie
                   data={projectsByStatus}
+                  dataKey="value"
+                  nameKey="name"
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={(entry) => `${entry.name}: ${entry.value}`}
                   outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
+                  labelLine={false}
+                  isAnimationActive
                 >
-                  {projectsByStatus.map((entry, index) => (
+                  {projectsByStatus.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--construction-slate))",
-                    border: "1px solid hsl(var(--construction-steel) / 0.6)",
-                    color: "hsl(var(--foreground))",
-                  }}
-                />
-                <Legend />
               </PieChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       )}
@@ -213,28 +213,35 @@ const Dashboard = () => {
                 <Skeleton className="h-[260px] w-full" />
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ChartContainer
+                className="h-[300px] w-full"
+                config={{
+                  amount: { label: "Spent", color: "hsl(var(--construction-orange))" },
+                }}
+              >
                 <LineChart data={expensesByDay} margin={{ left: 8, right: 12 }}>
-                <CartesianGrid stroke={gridStroke} strokeDasharray="4 4" />
-                <XAxis dataKey="day" tick={{ fill: axisTick }} interval={4} />
-                <YAxis tick={{ fill: axisTick }} />
-                <Tooltip
-                  formatter={(value: any) => [`$${Number(value).toLocaleString()}`, "Spent"]}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--construction-slate))",
-                    border: "1px solid hsl(var(--construction-steel) / 0.6)",
-                    color: "hsl(var(--foreground))",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke="hsl(var(--construction-orange))"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                  <CartesianGrid stroke="#ccc" strokeDasharray="4 4" />
+                  <XAxis dataKey="day" interval={4} />
+                  <YAxis />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value: any) => [`$${Number(value).toLocaleString()}`, "Spent"]}
+                        indicator="line"
+                      />
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="var(--color-amount)"
+                    strokeWidth={2.25}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    isAnimationActive
+                  />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -250,33 +257,31 @@ const Dashboard = () => {
                 <Skeleton className="h-[260px] w-full" />
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ChartContainer
+                className="h-[300px] w-full"
+                config={{
+                  quantity: { label: "Qty", color: "hsl(var(--construction-amber))" },
+                }}
+              >
                 <BarChart data={materialsByCategory} margin={{ left: 8, right: 12 }}>
-                <CartesianGrid stroke={gridStroke} strokeDasharray="4 4" />
-                <XAxis
-                  dataKey="category"
-                  tick={{ fill: axisTick }}
-                  interval={0}
-                  angle={-20}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis tick={{ fill: axisTick }} />
-                <Tooltip
-                  formatter={(value: any) => [Number(value).toLocaleString(), "Qty"]}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--construction-slate))",
-                    border: "1px solid hsl(var(--construction-steel) / 0.6)",
-                    color: "hsl(var(--foreground))",
-                  }}
-                />
-                <Bar dataKey="quantity" radius={[6, 6, 0, 0]}>
-                  {materialsByCategory.map((_, idx) => (
-                    <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                  ))}
-                </Bar>
+                  <CartesianGrid stroke="#ccc" strokeDasharray="4 4" />
+                  <XAxis dataKey="category" interval={0} angle={-20} textAnchor="end" height={60} />
+                  <YAxis />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value: any) => [Number(value).toLocaleString(), "Qty"]}
+                        indicator="dot"
+                      />
+                    }
+                  />
+                  <Bar dataKey="quantity" radius={[10, 10, 2, 2]} isAnimationActive>
+                    {materialsByCategory.map((_, idx) => (
+                      <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>

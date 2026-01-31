@@ -9,6 +9,7 @@ import { HardHat, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useTheme } from "next-themes";
 import * as z from "zod";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const COMMON_PASSWORDS = [
   "password",
@@ -66,6 +67,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<{ title: string; message: string } | null>(null);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [adminExists, setAdminExists] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -142,6 +144,7 @@ const Auth = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setFormError(null);
 
     try {
       const parsed = authSchema.safeParse({ email, password });
@@ -159,21 +162,19 @@ const Auth = () => {
       const now = Date.now();
       if (guard.lockedUntil > now) {
         const seconds = Math.ceil((guard.lockedUntil - now) / 1000);
-        toast({
-          title: "Please wait",
-          description: `Too many failed attempts. Try again in ${seconds}s.`,
-          variant: "destructive",
-        });
+          setFormError({
+            title: "Too many attempts",
+            message: `Too many failed attempts. Try again in ${seconds}s.`,
+          });
         return;
       }
 
       if (!isLogin) {
         const lower = password.trim().toLowerCase();
         if (COMMON_PASSWORDS.includes(lower) || lower.includes("password")) {
-          toast({
+          setFormError({
             title: "Weak password",
-            description: "Please choose a stronger password (avoid common passwords).",
-            variant: "destructive",
+            message: "Please choose a stronger password (avoid common passwords).",
           });
           return;
         }
@@ -254,11 +255,22 @@ const Auth = () => {
 
       writeAuthGuardState(normalizedEmail, { attempts, lockedUntil, lastFailureAt: now });
 
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const rawMsg = String(error?.message || "Authentication failed");
+      const msg = rawMsg.toLowerCase();
+
+      if (msg.includes("invalid login credentials") || msg.includes("invalid") || msg.includes("credentials")) {
+        setFormError({
+          title: "Incorrect email or password",
+          message: "Please check your email and password and try again.",
+        });
+      } else if (msg.includes("email not confirmed") || msg.includes("confirm") || msg.includes("not confirmed")) {
+        setFormError({
+          title: "Email not confirmed",
+          message: "Please open your inbox and confirm your email address before logging in.",
+        });
+      } else {
+        setFormError({ title: "Login failed", message: rawMsg });
+      }
     } finally {
       setLoading(false);
     }
@@ -282,6 +294,12 @@ const Auth = () => {
           </div>
 
           <form onSubmit={handleAuth} className="space-y-4">
+            {formError && (
+              <Alert variant="destructive">
+                <AlertTitle>{formError.title}</AlertTitle>
+                <AlertDescription>{formError.message}</AlertDescription>
+              </Alert>
+            )}
             <div>
               <Label htmlFor="email" className="text-foreground">Email</Label>
               <div className="relative">
@@ -290,7 +308,10 @@ const Auth = () => {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (formError) setFormError(null);
+                  }}
                   required
                   className="pl-10"
                   placeholder="Enter the email"
@@ -306,7 +327,10 @@ const Auth = () => {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (formError) setFormError(null);
+                  }}
                   required
                   className="pl-10 pr-10"
                   placeholder="••••••••"
